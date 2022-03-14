@@ -10,14 +10,14 @@ app.use(express.query({}));
 
 app.get('/', (req, res) => res.json({ timestamp: Date.now() }));
 
-const PATH = '/github/login/oauth/access_token' as const;
+const PATH = 'login/oauth/access_token' as const;
 
-app.post(PATH, (req, res, next) => {
+app.post(`/github/${PATH}`, (req, res, next) => {
   const { accept, origin } = req.headers;
   const { code } = req.query;
 
   axios
-    .post<unknown>(`https://github.com${PATH}`, undefined, {
+    .post<unknown>(`https://github.com/${PATH}`, undefined, {
       headers: {
         ...(accept ? { accept } : {}),
       },
