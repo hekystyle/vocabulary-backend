@@ -74,6 +74,7 @@ jobs:
           key: build-${{ github.sha }}
 
   test:
+    if: ${{ false }}
     needs: [deps, lint, build]
     runs-on: ubuntu-latest
     steps:
