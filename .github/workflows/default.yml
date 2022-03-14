@@ -1,0 +1,123 @@
+name: default
+
+on:
+  push:
+    branches: ["*"]
+  pull_request:
+    branches: [master]
+
+concurrency: 
+  group: ${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deps:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 14.x
+          cache: "yarn"
+
+      - name: Restore node_modules
+        uses: actions/cache@v2
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+
+      - run: yarn install
+
+  lint:
+    needs: [deps]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 14.x
+          cache: "yarn"
+
+      - name: Restore node_modules
+        uses: actions/cache@v2
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+
+      - run: yarn run lint
+
+  build:
+    needs: [deps, lint]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 14.x
+          cache: "yarn"
+
+      - name: Restore node_modules
+        uses: actions/cache@v2
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+
+      - run: yarn run build
+
+      - name: Cache build
+        uses: actions/cache@v2
+        with:
+          path: build
+          key: build-${{ github.sha }}
+
+  test:
+    needs: [deps, lint, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 14.x
+          cache: "yarn"
+
+      - name: Restore node_modules
+        uses: actions/cache@v2
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+
+      - run: yarn run test
+
+  deploy:
+    needs: [deps, lint, build, test]
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 14.x
+
+      - name: Restore node_modules
+        uses: actions/cache@v2
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+
+      - name: Restore build
+        uses: actions/cache@v2
+        with:
+          path: build
+          key: build-${{ github.sha }}
+
+      - name: Deploy with gh-pages
+        run: |
+          git remote set-url origin https://git:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git
+          npm run deploy -- -u "github-actions-bot <support+actions@github.com>"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

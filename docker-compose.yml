@@ -1,0 +1,8 @@
+version: '3.8'
+
+services:
+  backend:
+    image: node:lts-alpine
+    ports:
+      - 3001:3001
+    command: ts-node --esm src/index.ts
