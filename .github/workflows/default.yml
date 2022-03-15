@@ -60,9 +60,11 @@ jobs:
           path: node_modules
           key: ${{ runner.os }}-${{ hashFiles('yarn.lock') }}
 
-      - run: |
-          docker build . -t ghcr.io/${{ github.repository }}
-          docker image save -o image.tar ghcr.io/${{ github.repository }}
+      - run: docker pull ghcr.io/${{ github.repository }}
+        continue-on-error: true
+
+      - run: docker build . -t ghcr.io/${{ github.repository }}
+      - run: docker image save -o image.tar ghcr.io/${{ github.repository }}
 
       - name: Cache docker image
         uses: actions/cache@v2
