@@ -91,7 +91,7 @@ jobs:
       - run: yarn run test
 
   publish:
-    needs: [deps, lint, build, test]
+    needs: [deps, lint, build]
     runs-on: ubuntu-latest
     if: ${{ github.ref == 'refs/heads/publishing' || github.ref == 'refs/heads/master' }}
     steps:
