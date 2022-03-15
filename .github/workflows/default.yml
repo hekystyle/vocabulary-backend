@@ -54,24 +54,23 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 14.x
-          cache: "yarn"
-
       - name: Restore node_modules
         uses: actions/cache@v2
         with:
           path: node_modules
           key: ${{ runner.os }}-${{ hashFiles('yarn.lock') }}
 
-      - run: yarn run build
+      - run: docker pull ghcr.io/${{ github.repository }}
+        continue-on-error: true
 
-      - name: Cache build
+      - run: docker build . -t ghcr.io/${{ github.repository }}
+      - run: docker image save -o image.tar ghcr.io/${{ github.repository }}
+
+      - name: Cache docker image
         uses: actions/cache@v2
         with:
-          path: build
-          key: build-${{ github.sha }}
+          path: image.tar
+          key: image-${{ github.sha }}
 
   test:
     if: ${{ false }}
@@ -93,32 +92,19 @@ jobs:
 
       - run: yarn run test
 
-  deploy:
-    needs: [deps, lint, build, test]
+  publish:
+    needs: [deps, lint, build]
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+    if: ${{ github.event_name == 'push' && ( github.ref == 'refs/heads/publishing' || github.ref == 'refs/heads/master' ) }}
     steps:
-      - uses: actions/checkout@v3
-
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 14.x
-
-      - name: Restore node_modules
+      - name: Restore docker image
         uses: actions/cache@v2
         with:
-          path: node_modules
-          key: ${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+          path: image.tar
+          key: image-${{ github.sha }}
 
-      - name: Restore build
-        uses: actions/cache@v2
-        with:
-          path: build
-          key: build-${{ github.sha }}
-
-      - name: Deploy with gh-pages
-        run: |
-          git remote set-url origin https://git:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git
-          npm run deploy -- -u "github-actions-bot <support+actions@github.com>"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: |
+          docker image import image.tar ghcr.io/${{ github.repository }}
+          docker image tag ghcr.io/${{ github.repository }} ghcr.io/${{ github.repository }}:${{ github.sha }}
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
+          docker push --all-tags ghcr.io/${{ github.repository }}
